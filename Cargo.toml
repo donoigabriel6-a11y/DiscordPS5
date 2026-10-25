@@ -1,0 +1,78 @@
+[workspace]
+members = [
+    "crates/discord-gateway",
+    "crates/discord-rest",
+    "crates/discord-voice",
+    "crates/ps5-platform",
+    "crates/ui",
+    "crates/app",
+    "crates/common",
+]
+resolver = "2"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.38", features = ["full", "rt-multi-thread"] }
+
+# WebSocket
+tungstenite = { version = "0.22", features = ["native-tls", "async-tls"] }
+
+# HTTP
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "gzip", "brotli"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_repr = "0.1"
+
+# WebRTC
+webrtc = { version = "0.11", features = ["tokio"] }
+webrtc-util = "0.11"
+opus = "0.5"
+
+# Graphics
+gl = "0.14"
+egl = "0.9"
+gbm = "0.1"
+drm = "0.1"
+
+# ImGui
+imgui = "0.10"
+imgui-opengl-renderer = "0.6"
+
+# Audio
+cpal = { version = "0.15", features = ["jack"] }
+rubato = "0.13"
+
+# Storage
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+tracing-appender = "0.6"
+
+# Utilities
+anyhow = "1.0"
+thiserror = "1.0"
+parking_lot = "0.12"
+crossbeam = "0.8"
+bytes = "1.5"
+futures = "0.3"
+uuid = { version = "1.7", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Platform
+libc = "0.2"
+nix = { version = "0.28", features = ["net", "process"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+opt-level = "z"
+strip = true
+
+[profile.dev]
+opt-level = 1
+debug = true

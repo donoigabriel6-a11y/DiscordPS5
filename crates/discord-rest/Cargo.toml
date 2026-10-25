@@ -1,0 +1,17 @@
+[package]
+name = "discord-rest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+discord-common = { path = "../common" }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+bytes = { workspace = true }
+futures = { workspace = true }

@@ -1,0 +1,24 @@
+[package]
+name = "discord-ui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+discord-common = { path = "../common" }
+discord-gateway = { path = "../discord-gateway" }
+discord-rest = { path = "../discord-rest" }
+discord-voice = { path = "../discord-voice" }
+ps5-platform = { path = "../ps5-platform" }
+
+tokio = { workspace = true }
+imgui = { workspace = true }
+imgui-opengl-renderer = { workspace = true }
+gl = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true, features = ["v4", "serde"] }

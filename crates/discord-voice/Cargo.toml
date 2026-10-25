@@ -1,0 +1,20 @@
+[package]
+name = "discord-voice"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+discord-common = { path = "../common" }
+tokio = { workspace = true }
+webrtc = { workspace = true }
+webrtc-util = { workspace = true }
+opus = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+parking_lot = { workspace = true }
+bytes = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tungstenite = { workspace = true }

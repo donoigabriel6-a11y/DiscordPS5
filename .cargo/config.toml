@@ -1,0 +1,13 @@
+[target.aarch64-unknown-freebsd]
+linker = "aarch64-unknown-freebsd-clang"
+ar = "aarch64-unknown-freebsd-ar"
+
+# For running on PS5 via SSH
+# runner = "ssh ps5-user@ps5-ip"
+
+[build]
+target = "aarch64-unknown-freebsd"
+
+[env]
+# PS5SDK paths - adjust based on your PS5SDK installation
+PS5_SDK_PATH = "C:/PS5SDK"
