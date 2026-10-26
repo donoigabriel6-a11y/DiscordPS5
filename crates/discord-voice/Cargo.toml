@@ -20,7 +20,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tungstenite = { workspace = true }
 num-traits = "0.2"
-aes = { version = "0.8", features = ["cipher"] }
+aes = { version = "0.8" }
 ctr = "0.10"
 hmac = "0.12"
 sha1 = "0.10"
