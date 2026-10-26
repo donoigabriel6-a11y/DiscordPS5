@@ -36,6 +36,9 @@ webrtc = { version = "0.11" }
 webrtc-util = "0.11"
 opus = "0.4"
 
+# OpenSSL for native-tls (vendored for cross-compilation)
+openssl-sys = { version = "0.9", features = ["vendored"] }
+
 # Graphics
 gl = "0.14"
 egl = "0.9"

@@ -264,7 +264,7 @@ jobs:
             ${{ runner.os }}-cargo-native-
 
       - name: Build native (for testing)
-        run: cargo build --release --workspace
+        run: cargo build --release --workspace --target x86_64-unknown-linux-gnu
 
       - name: Run tests
         run: cargo test --workspace
