@@ -167,7 +167,7 @@ impl IceManager {
         let rtc_candidate = RTCIceCandidateInit {
             candidate: candidate.candidate.clone(),
             sdp_mid: candidate.sdp_mid,
-            sdp_mline_index: candidate.sdp_mline_index,
+            sdp_mline_index: Some(candidate.sdp_mline_index),
             username_fragment: candidate.username_fragment,
         };
 
@@ -237,7 +237,7 @@ impl IceManager {
             while *running.read() {
                 interval.tick().await;
 
-                let conn_state = peer_connection.ice_connection_state().await;
+                let conn_state = peer_connection.ice_connection_state();
                 let ice_state = match conn_state {
                     webrtc::ice_transport::ice_connection_state::RTCIceConnectionState::New => IceConnectionState::New,
                     webrtc::ice_transport::ice_connection_state::RTCIceConnectionState::Checking => IceConnectionState::Checking,
@@ -323,7 +323,7 @@ fn parse_ice_candidate(candidate: &RTCIceCandidateInit) -> Option<IceCandidate> 
     Some(IceCandidate {
         candidate: candidate.candidate.clone(),
         sdp_mid: candidate.sdp_mid.clone(),
-        sdp_mline_index: candidate.sdp_mline_index,
+        sdp_mline_index: candidate.sdp_mline_index.unwrap_or(0),
         username_fragment: candidate.username_fragment.clone(),
         candidate_type,
         priority,
@@ -360,6 +360,7 @@ pub fn ice_servers_with_turn(turn_url: &str, username: &str, credential: &str) -
         urls: vec![turn_url.to_string()],
         username: username.to_string(),
         credential: credential.to_string(),
+        credential_type: webrtc::ice_transport::ice_server::RTCIceCredentialType::Password,
     });
     servers
 }

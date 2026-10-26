@@ -4,13 +4,12 @@
 
 use std::sync::Arc;
 use std::collections::HashMap;
-use std::net::SocketAddr;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
 use parking_lot::RwLock;
 use tokio::sync::mpsc;
-use tokio::time::{interval, timeout};
+use tokio::time::timeout;
 use tracing::{debug, error, info, warn};
 use webrtc::api::interceptor_registry::register_default_interceptors;
 use webrtc::api::media_engine::MediaEngine;
@@ -25,6 +24,8 @@ use webrtc::rtp_transceiver::rtp_receiver::RTCRtpReceiver;
 use webrtc::track::track_remote::TrackRemote;
 use webrtc::track::track_local::{TrackLocal, TrackLocalWriter};
 use webrtc::track::track_local::TrackLocalStaticRTP;
+use webrtc::rtp::codecs::RTCRtpCodecCapability;
+use webrtc::rtp::codecs::MIME_TYPE_OPUS;
 
 use crate::{DiscordError, Result as VoiceResult, VoiceConfig, VoiceEvent, VoiceConnectionState};
 use crate::audio::{AudioSendPipeline, AudioReceivePipeline, RtpPacket, SrtpContext};
@@ -204,8 +205,8 @@ impl VoiceConnection {
     /// Create local audio track for Opus
     fn create_audio_track(&self) -> VoiceResult<Arc<TrackLocalStaticRTP>> {
         let track = Arc::new(TrackLocalStaticRTP::new(
-            webrtc::rtp::codec::RTCRtpCodecCapability {
-                mime_type: webrtc::rtp::codec::MIME_TYPE_OPUS.to_string(),
+            RTCRtpCodecCapability {
+                mime_type: MIME_TYPE_OPUS.to_string(),
                 clock_rate: 48000,
                 channels: 2,
                 sdp_fmtp_line: "minptime=10;useinbandfec=1".to_string(),
@@ -225,7 +226,8 @@ impl VoiceConnection {
         let event_tx = self.event_tx.clone();
 
         pc.on_track(Box::new(move |track, receiver, _| {
-            if let Ok(remote_track) = track.downcast_arc::<TrackRemote>() {
+            // In webrtc v0.11, use downcast instead of downcast_arc
+            if let Ok(remote_track) = track.downcast::<TrackRemote>() {
                 let ssrc_val = remote_track.ssrc();
                 *ssrc.write() = Some(ssrc_val);
                 remote_tracks.write().insert(ssrc_val, remote_track.clone());
@@ -254,12 +256,12 @@ impl VoiceConnection {
     /// Handle incoming remote audio track
     async fn handle_remote_track(track: Arc<TrackRemote>, event_tx: mpsc::UnboundedSender<VoiceEvent>) {
         let ssrc = track.ssrc();
-        let mut buf = vec![0u8; 4096];
 
         loop {
-            match track.read(&mut buf).await {
-                Ok((n, _)) => {
-                    let data = buf[..n].to_vec();
+            // In webrtc v0.11, read returns the RTP packet directly
+            match track.read_rtp().await {
+                Ok(packet) => {
+                    let data = packet.payload.to_vec();
                     event_tx.send(VoiceEvent::AudioReceived { ssrc, data }).ok();
                 }
                 Err(e) => {

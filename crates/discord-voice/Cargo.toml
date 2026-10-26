@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 discord-common = { path = "../common" }
 tokio = { workspace = true }
+tokio-tungstenite = { version = "0.22", features = ["native-tls"] }
 webrtc = { workspace = true }
 webrtc-util = { workspace = true }
 opus = { workspace = true }
@@ -18,3 +19,8 @@ futures = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tungstenite = { workspace = true }
+num-traits = "0.2"
+aes = "0.8"
+ctr = "0.10"
+hmac = "0.12"
+sha1 = "0.10"

@@ -440,18 +440,15 @@ impl JitterBuffer {
             sequence,
         };
 
-        // Insert in sequence order
-        let mut inserted = false;
+        // Insert in sequence order - find position first, then insert
+        let mut insert_pos = self.buffer.len();
         for i in 0..self.buffer.len() {
             if self.buffer[i].sequence > sequence {
-                self.buffer.insert(i, entry);
-                inserted = true;
+                insert_pos = i;
                 break;
             }
         }
-        if !inserted {
-            self.buffer.push_back(entry);
-        }
+        self.buffer.insert(insert_pos, entry);
 
         // Trim if over capacity
         while self.buffer.len() > self.capacity {

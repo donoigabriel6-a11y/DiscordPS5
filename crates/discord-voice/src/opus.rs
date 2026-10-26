@@ -71,10 +71,11 @@ impl OpusEncoder {
     /// Input: Interleaved PCM samples (i16) of length frame_size * channels
     /// Output: Opus packet bytes
     pub fn encode(&mut self, pcm: &[i16], output: &mut [u8]) -> VoiceResult<usize> {
-        if pcm.len() != self.frame_size * self.channels {
+        let channels = self.channels();
+        if pcm.len() != self.frame_size * channels {
             return Err(DiscordError::Audio(format!(
                 "Invalid PCM length: expected {}, got {}",
-                self.frame_size * self.channels, pcm.len()
+                self.frame_size * channels, pcm.len()
             )).into());
         }
 
@@ -159,9 +160,9 @@ impl OpusDecoder {
 
     /// Decode Opus packet with PLC (Packet Loss Concealment)
     ///
-    /// Called when a packet is lost - pass None for opus_data
+    /// Called when a packet is lost - pass empty slice for opus_data
     pub fn decode_plc(&mut self, pcm: &mut [i16]) -> VoiceResult<usize> {
-        let decoded_samples = self.decoder.decode(None, pcm, false)
+        let decoded_samples = self.decoder.decode(&[], pcm, false)
             .context("Failed to decode Opus (PLC)")?;
 
         debug!("Decoded Opus PLC: {} samples per channel", decoded_samples);
@@ -334,7 +335,7 @@ impl AudioResampler {
         for i in 0..output_len {
             let src_idx = i as f64 / self.ratio;
             let idx = src_idx as usize;
-            let frac = src_idx - idx as f64;
+            let frac = (src_idx - idx as f64) as f32;
 
             if idx + 1 < input_len {
                 output[i] = input[idx] * (1.0 - frac) + input[idx + 1] * frac;

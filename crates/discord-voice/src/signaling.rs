@@ -20,6 +20,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::{DiscordError, Result as VoiceResult, VoiceConfig, VoiceEvent};
 use discord_common::discord_types::*;
+use num_traits::FromPrimitive;
 
 /// Voice signaling state
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,6 +60,7 @@ impl SignalingConfig {
 }
 
 /// Voice signaling manager
+#[derive(Clone)]
 pub struct VoiceSignaling {
     config: SignalingConfig,
     state: Arc<RwLock<SignalingState>>,
@@ -177,6 +179,7 @@ impl VoiceSignaling {
                                 &event_tx,
                                 &config,
                                 &ws_stream,
+                                &running,
                             ).await {
                                 error!("Error handling voice signaling message: {}", e);
                             }
@@ -212,6 +215,7 @@ impl VoiceSignaling {
         event_tx: &mpsc::UnboundedSender<VoiceEvent>,
         config: &SignalingConfig,
         ws_stream: &Arc<RwLock<Option<WebSocketStream<MaybeTlsStream<TcpStream>>>>>,
+        running: &Arc<RwLock<bool>>,
     ) -> VoiceResult<()> {
         match msg {
             Message::Text(text) => {
@@ -219,7 +223,7 @@ impl VoiceSignaling {
                     .context("Failed to parse voice signaling payload")?;
 
                 let op = payload["op"].as_u64().unwrap_or(0) as u8;
-                let opcode = VoiceOpCode::from(op);
+                let opcode = VoiceOpCode::from_u8(op).unwrap_or(VoiceOpCode::Identify);
 
                 match opcode {
                     VoiceOpCode::Hello => {
@@ -232,7 +236,7 @@ impl VoiceSignaling {
                             heartbeat_interval.clone(),
                             last_heartbeat_ack.clone(),
                             ws_stream.clone(),
-                            running.clone(),
+                            Arc::clone(running),
                         );
 
                         // Send SELECT_PROTOCOL
