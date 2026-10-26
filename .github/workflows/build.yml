@@ -1,0 +1,221 @@
+name: Build Discord PS5 (Homebrew)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  # Homebrew PS5SDK version/release to use
+  PS5SDK_VERSION: "latest"  # or specific tag like "v1.0.0"
+  PS5SDK_REPO: "ps5dev/PS5SDK"  # GitHub repo for the homebrew PS5SDK
+
+jobs:
+  build:
+    name: Build for PS5 (aarch64-unknown-freebsd) with Homebrew PS5SDK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-freebsd
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            lld \
+            llvm \
+            cmake \
+            ninja-build \
+            git \
+            wget \
+            unzip \
+            python3 \
+            libssl-dev \
+            pkg-config
+
+      - name: Install Homebrew PS5SDK
+        id: ps5sdk
+        run: |
+          set -euo pipefail
+
+          SDK_DIR="/opt/ps5sdk"
+          echo "PS5SDK_DIR=$SDK_DIR" >> $GITHUB_ENV
+
+          # Try to download prebuilt release first
+          if [ "${{ env.PS5SDK_VERSION }}" = "latest" ]; then
+            RELEASE_URL="https://api.github.com/repos/${{ env.PS5SDK_REPO }}/releases/latest"
+          else
+            RELEASE_URL="https://api.github.com/repos/${{ env.PS5SDK_REPO }}/releases/tags/${{ env.PS5SDK_VERSION }}"
+          fi
+
+          echo "Fetching release info from $RELEASE_URL"
+          RELEASE_INFO=$(curl -sL "$RELEASE_URL" || echo "{}")
+
+          # Look for Linux x86_64 prebuilt asset
+          ASSET_URL=$(echo "$RELEASE_INFO" | grep -o '"browser_download_url": "[^"]*linux[^"]*x86_64[^"]*"' | head -1 | cut -d'"' -f4)
+
+          if [ -n "$ASSET_URL" ]; then
+            echo "Found prebuilt PS5SDK asset: $ASSET_URL"
+            wget -q "$ASSET_URL" -O /tmp/ps5sdk.tar.gz
+            sudo mkdir -p "$SDK_DIR"
+            sudo tar -xzf /tmp/ps5sdk.tar.gz -C "$SDK_DIR" --strip-components=1 2>/dev/null || \
+            sudo tar -xzf /tmp/ps5sdk.tar.gz -C "$SDK_DIR" 2>/dev/null || true
+          else
+            echo "No prebuilt Linux asset found, building from source..."
+            git clone --depth 1 --branch "${{ env.PS5SDK_VERSION }}" \
+              "https://github.com/${{ env.PS5SDK_REPO }}.git" /tmp/PS5SDK
+            cd /tmp/PS5SDK
+
+            # Build PS5SDK (adjust build commands based on the SDK's build system)
+            if [ -f "CMakeLists.txt" ]; then
+              cmake -B build -DCMAKE_INSTALL_PREFIX="$SDK_DIR" -DCMAKE_BUILD_TYPE=Release
+              cmake --build build --parallel $(nproc)
+              sudo cmake --install build
+            elif [ -f "Makefile" ]; then
+              make -j$(nproc) PREFIX="$SDK_DIR"
+              sudo make install PREFIX="$SDK_DIR"
+            else
+              echo "Unknown build system, trying generic install..."
+              sudo cp -r * "$SDK_DIR/" 2>/dev/null || true
+            fi
+          fi
+
+          # Verify SDK installation
+          echo "=== PS5SDK Installation ==="
+          ls -la "$SDK_DIR/"
+          if [ -f "$SDK_DIR/bin/ps5-clang" ] || [ -f "$SDK_DIR/bin/clang" ]; then
+            echo "PS5SDK installed successfully"
+            "$SDK_DIR/bin/ps5-clang" --version 2>/dev/null || "$SDK_DIR/bin/clang" --version 2>/dev/null || true
+          else
+            echo "Warning: PS5SDK compiler not found in expected location"
+            find "$SDK_DIR" -name "clang" -o -name "ps5-clang" 2>/dev/null | head -5
+          fi
+
+      - name: Configure cargo for PS5SDK
+        run: |
+          mkdir -p ~/.cargo
+          cat > ~/.cargo/config.toml << 'EOF'
+          [target.aarch64-unknown-freebsd]
+          # Use PS5SDK's clang if available, otherwise fallback to system clang with sysroot
+          linker = "ps5-clang"
+          ar = "ps5-ar"
+
+          [build]
+          target = "aarch64-unknown-freebsd"
+
+          [env]
+          PS5_SDK_PATH = "${{ env.PS5SDK_DIR }}"
+          PATH = "${{ env.PS5SDK_DIR }}/bin:${{ env.PATH }}"
+          CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_LINKER = "ps5-clang"
+          CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_RUNNER = "ps5-run"
+          EOF
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-ps5-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-ps5-
+
+      - name: Build workspace (check only)
+        run: cargo check --workspace --target aarch64-unknown-freebsd
+        env:
+          PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
+          PATH: ${{ env.PS5SDK_DIR }}/bin:${{ env.PATH }}
+
+      - name: Build release binary
+        run: cargo build --release --workspace --target aarch64-unknown-freebsd --bin discord-app
+        env:
+          PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
+          PATH: ${{ env.PS5SDK_DIR }}/bin:${{ env.PATH }}
+
+      - name: Verify binary
+        run: |
+          file target/aarch64-unknown-freebsd/release/discord-app
+          ls -lh target/aarch64-unknown-freebsd/release/discord-app
+
+          # Check if it's a valid FreeBSD/PS5 binary
+          if command -v readelf >/dev/null; then
+            readelf -h target/aarch64-unknown-freebsd/release/discord-app | head -20
+          fi
+
+      - name: Upload PS5 binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: discord-ps5-homebrew-binary
+          path: target/aarch64-unknown-freebsd/release/discord-app
+          retention-days: 30
+
+      - name: Create release on tag push
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: target/aarch64-unknown-freebsd/release/discord-app
+          generate_release_notes: true
+          tag_name: ${{ github.ref_name }}
+          name: Discord PS5 Homebrew ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Optional: Native Linux build for testing
+  build-native:
+    name: Native Linux Build (Testing)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            libssl-dev \
+            libasound2-dev \
+            libudev-dev \
+            libx11-dev \
+            libxcb-dev \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libegl-dev \
+            libgbm-dev \
+            libdrm-dev \
+            clang \
+            llvm
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-native-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-native-
+
+      - name: Build native (for testing)
+        run: cargo build --release --workspace
+
+      - name: Run tests
+        run: cargo test --workspace

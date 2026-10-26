@@ -1,0 +1,29 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PS5 SDK (local paths)
+PS5SDK/
+*.elf
+*.self
+*.pkg
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
