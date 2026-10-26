@@ -14,6 +14,9 @@ resolver = "2"
 # Async runtime
 tokio = { version = "1.38", features = ["full", "rt-multi-thread"] }
 
+# CLI
+clap = { version = "4.5", features = ["derive"] }
+
 # WebSocket
 tungstenite = { version = "0.22", features = ["native-tls", "async-tls"] }
 
