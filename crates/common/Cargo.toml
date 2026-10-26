@@ -16,3 +16,4 @@ bytes = { workspace = true }
 tungstenite = { workspace = true }
 reqwest = { workspace = true }
 rusqlite = { workspace = true }
+bitflags = { workspace = true }
