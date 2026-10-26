@@ -17,7 +17,7 @@ jobs:
   build:
     name: Build for PS5 (aarch64-unknown-freebsd) with Homebrew PS5SDK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -41,8 +41,13 @@ jobs:
             wget \
             unzip \
             python3 \
+            python3-pip \
             libssl-dev \
             pkg-config
+
+      - name: Install Python dependencies for packaging
+        run: |
+          pip3 install pillow
 
       - name: Install Homebrew PS5SDK
         id: ps5sdk
@@ -154,6 +159,22 @@ jobs:
             readelf -h target/aarch64-unknown-freebsd/release/discord-app | head -20
           fi
 
+      - name: Build PS5 Package (.pkg)
+        run: |
+          python3 packaging/build_pkg.py \
+            target/aarch64-unknown-freebsd/release/discord-app \
+            -o discord-ps5.pkg \
+            --title-id DISCORDPS5 \
+            --title "Discord PS5" \
+            --version ${{ github.ref_name == 'refs/heads/main' && '0.1.0-dev' || github.ref_name }} \
+            --app-ver 01.00 \
+            --content-id DISCORDPS5_001 \
+            --ps5sdk ${{ env.PS5SDK_DIR }} \
+            --work-dir build/pkg
+        env:
+          PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
+          PATH: ${{ env.PS5SDK_DIR }}/bin:${{ env.PATH }}
+
       - name: Upload PS5 binary artifact
         uses: actions/upload-artifact@v4
         with:
@@ -161,11 +182,20 @@ jobs:
           path: target/aarch64-unknown-freebsd/release/discord-app
           retention-days: 30
 
+      - name: Upload PS5 Package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: discord-ps5-homebrew-pkg
+          path: discord-ps5.pkg
+          retention-days: 30
+
       - name: Create release on tag push
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: target/aarch64-unknown-freebsd/release/discord-app
+          files: |
+            target/aarch64-unknown-freebsd/release/discord-app
+            discord-ps5.pkg
           generate_release_notes: true
           tag_name: ${{ github.ref_name }}
           name: Discord PS5 Homebrew ${{ github.ref_name }}
