@@ -44,7 +44,7 @@ drm = "0.1"
 
 # ImGui
 imgui = "0.10"
-imgui-opengl-renderer = "0.6"
+imgui-opengl-renderer = "0.11"
 
 # Audio
 cpal = { version = "0.15", features = ["jack"] }
