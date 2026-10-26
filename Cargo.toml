@@ -44,7 +44,7 @@ drm = "0.1"
 
 # ImGui
 imgui = "0.10"
-imgui-opengl-renderer = "0.11"
+imgui-opengl-renderer = "0.6"
 
 # Audio
 cpal = { version = "0.15", features = ["jack"] }
@@ -71,6 +71,10 @@ chrono = { version = "0.4", features = ["serde"] }
 # Platform
 libc = "0.2"
 nix = { version = "0.28", features = ["net", "process"] }
+
+[patch.crates-io]
+# xml-rs 0.7.0 and 0.7.1 are yanked, use git version instead
+xml-rs = { git = "https://github.com/Rust-SDL2/rust-xml", tag = "0.7.1" }
 
 [profile.release]
 lto = true
