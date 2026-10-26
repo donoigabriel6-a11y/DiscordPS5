@@ -8,8 +8,8 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
-use aes::cipher::{KeyIvInit, StreamCipher};
 use aes::Aes128;
+use cipher::{KeyIvInit, StreamCipher};
 use ctr::Ctr128BE;
 use hmac::{Hmac, Mac};
 use sha1::Sha1;
@@ -259,7 +259,7 @@ impl SrtpContext {
     {
         // Simplified key derivation - in production use proper AES-CM KDF
         // This is a placeholder implementation
-        let mut session_key = *master_key;
+        let session_key = *master_key;
         let mut session_salt = *master_salt;
         let mut auth_key = [0u8; 20];
 
@@ -355,8 +355,8 @@ impl SrtpContext {
 
         // Extract auth tag
         let auth_tag = &data[data.len() - SRTP_AUTH_TAG_SIZE..];
-        let encrypted_payload = &data[RTP_HEADER_SIZE + packet.csrc_list.len() * 4 +
-            packet.extension_header.as_ref().map_or(0, |e| 4 + (e.length + 1) * 4)..data.len() - SRTP_AUTH_TAG_SIZE];
+        let ext_header_size = packet.extension_header.as_ref().map_or(0, |e| 4 + ((e.length as usize + 1) * 4));
+        let encrypted_payload = &data[RTP_HEADER_SIZE + packet.csrc_list.len() * 4 + ext_header_size..data.len() - SRTP_AUTH_TAG_SIZE];
 
         let iv = self.build_iv(packet.sequence);
 

@@ -31,7 +31,7 @@ impl OpusEncoder {
     /// Create a new Opus encoder for Discord voice
     pub fn new() -> VoiceResult<Self> {
         let channels = Channels::Stereo;
-        let encoder = Encoder::new(OPUS_SAMPLE_RATE, channels, Application::Audio)
+        let mut encoder = Encoder::new(OPUS_SAMPLE_RATE, channels, Application::Audio)
             .context("Failed to create Opus encoder")?;
 
         // Configure encoder for Discord voice

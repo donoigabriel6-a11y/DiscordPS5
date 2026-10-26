@@ -72,6 +72,7 @@ futures = "0.3"
 uuid = { version = "1.7", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 bitflags = "2.5"
+cipher = "0.5"
 
 # Platform
 libc = "0.2"
