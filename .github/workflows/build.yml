@@ -121,7 +121,7 @@ jobs:
 
       - name: Build OpenSSL for PS5 target (aarch64-unknown-freebsd)
         run: |
-          # Build OpenSSL from source for aarch64-unknown-freebsd
+          # Build OpenSSL from source for aarch64-unknown-freebsd (FreeBSD ARM64)
           OPENSSL_VERSION="3.2.1"
           OPENSSL_SRC_DIR="/tmp/openssl-${OPENSSL_VERSION}"
           OPENSSL_INSTALL_DIR="/opt/openssl-ps5"
@@ -146,8 +146,9 @@ jobs:
             AR="llvm-ar"
           fi
 
-          # Configure OpenSSL for aarch64-unknown-freebsd
-          ./Configure linux-aarch64 \
+          # Configure OpenSSL for FreeBSD ARM64 (aarch64-unknown-freebsd)
+          # Use freebsd-arm64 target for FreeBSD on ARM64
+          ./Configure freebsd-arm64 \
             --prefix="${OPENSSL_INSTALL_DIR}" \
             --openssldir="${OPENSSL_INSTALL_DIR}/ssl" \
             CC="${CC}" \
@@ -159,13 +160,14 @@ jobs:
             no-docs \
             no-engine \
             no-legacy \
-            2>&1 | tail -20
+            2>&1 | tail -30
 
-          # Build and install
-          make -j$(nproc) 2>&1 | tail -30
-          sudo make install_sw 2>&1 | tail -20
+          # Build and install - show full output to catch errors
+          make -j$(nproc)
+          sudo make install_sw
 
           echo "OpenSSL built and installed to ${OPENSSL_INSTALL_DIR}"
+          ls -la "${OPENSSL_INSTALL_DIR}/include/" 2>/dev/null || true
           ls -la "${OPENSSL_INSTALL_DIR}/lib/" 2>/dev/null || true
 
       - name: Configure cargo for PS5SDK
