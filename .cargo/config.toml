@@ -5,8 +5,15 @@ ar = "aarch64-unknown-freebsd-ar"
 # For running on PS5 via SSH
 # runner = "ssh ps5-user@ps5-ip"
 
-[build]
-target = "aarch64-unknown-freebsd"
+# OpenSSL configuration for cross-compilation
+# Disable pkg-config and use vendored OpenSSL
+[target.aarch64-unknown-freebsd.env]
+OPENSSL_NO_PKG_CONFIG = "1"
+OPENSSL_DIR = "/usr/local/ssl/aarch64-unknown-freebsd"
+
+# Note: Default target removed - workflows specify target explicitly
+# [build]
+# target = "aarch64-unknown-freebsd"
 
 [env]
 # PS5SDK paths - adjust based on your PS5SDK installation

@@ -162,7 +162,8 @@ pub struct ActivityAssets {
 pub struct ActivitySecrets {
     pub join: Option<String>,
     pub spectate: Option<String>,
-    pub match: Option<String>,
+    #[serde(rename = "match")]
+    pub r#match: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

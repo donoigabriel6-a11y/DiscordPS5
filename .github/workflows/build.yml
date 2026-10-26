@@ -44,7 +44,8 @@ jobs:
             python3-pip \
             libssl-dev \
             pkg-config \
-            libxcb1-dev
+            libxcb1-dev \
+            perl
 
       - name: Install Python dependencies for packaging
         run: |
@@ -137,8 +138,11 @@ jobs:
           linker = "${CLANG_CMD}"
           ar = "${AR_CMD}"
 
-          [build]
-          target = "aarch64-unknown-freebsd"
+          [target.aarch64-unknown-freebsd.env]
+          OPENSSL_NO_PKG_CONFIG = "1"
+          # CC and AR for openssl-sys vendored build
+          CC = "${CLANG_CMD}"
+          AR = "${AR_CMD}"
 
           [env]
           PS5_SDK_PATH = "${{ env.PS5SDK_DIR }}"

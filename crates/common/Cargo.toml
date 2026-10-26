@@ -13,3 +13,6 @@ chrono = { workspace = true, features = ["serde"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 parking_lot = { workspace = true }
 bytes = { workspace = true }
+tungstenite = { workspace = true }
+reqwest = { workspace = true }
+rusqlite = { workspace = true }
