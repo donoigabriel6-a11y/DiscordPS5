@@ -142,7 +142,8 @@ jobs:
 
           [env]
           PS5_SDK_PATH = "${{ env.PS5SDK_DIR }}"
-          PATH = "${{ env.PS5SDK_DIR }}/bin:\${{ env.PATH }}"
+          # Use shell \$PATH to preserve system paths (cargo, rustc, etc.)
+          PATH = "${{ env.PS5SDK_DIR }}/bin:\${PATH}"
           CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_LINKER = "${CLANG_CMD}"
           CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_RUNNER = "ps5-run"
           EOF
@@ -162,13 +163,13 @@ jobs:
         run: cargo check --workspace --target aarch64-unknown-freebsd
         env:
           PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
-          PATH: ${{ env.PS5SDK_DIR }}/bin:${{ env.PATH }}
+          PATH: ${{ env.PS5SDK_DIR }}/bin:$PATH
 
       - name: Build release binary
         run: cargo build --release --workspace --target aarch64-unknown-freebsd --bin discord-app
         env:
           PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
-          PATH: ${{ env.PS5SDK_DIR }}/bin:${{ env.PATH }}
+          PATH: ${{ env.PS5SDK_DIR }}/bin:$PATH
 
       - name: Verify binary
         run: |
@@ -194,7 +195,7 @@ jobs:
             --work-dir build/pkg
         env:
           PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
-          PATH: ${{ env.PS5SDK_DIR }}/bin:${{ env.PATH }}
+          PATH: ${{ env.PS5SDK_DIR }}/bin:$PATH
 
       - name: Upload PS5 binary artifact
         uses: actions/upload-artifact@v4
