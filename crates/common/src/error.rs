@@ -4,6 +4,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum DiscordError {
+    #[error("Anyhow error: {0}")]
+    Anyhow(#[from] anyhow::Error),
     #[error("Network error: {0}")]
     Network(#[from] std::io::Error),
 

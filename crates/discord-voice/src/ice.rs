@@ -246,6 +246,7 @@ impl IceManager {
                     webrtc::ice_transport::ice_connection_state::RTCIceConnectionState::Failed => IceConnectionState::Failed,
                     webrtc::ice_transport::ice_connection_state::RTCIceConnectionState::Disconnected => IceConnectionState::Disconnected,
                     webrtc::ice_transport::ice_connection_state::RTCIceConnectionState::Closed => IceConnectionState::Closed,
+                    webrtc::ice_transport::ice_connection_state::RTCIceConnectionState::Unspecified => IceConnectionState::New,
                 };
 
                 if ice_state != *state.read() {
@@ -282,7 +283,7 @@ fn parse_ice_candidate(candidate: &RTCIceCandidateInit) -> Option<IceCandidate> 
 
     // Parse foundation, component, protocol, priority
     let _foundation = parts[1];
-    let _component = parts[2].parse().ok()?;
+    let _component: u16 = parts[2].parse().ok()?;
     let protocol = parts[3].to_string();
     let priority = parts[4].parse().ok()?;
     let address = parts[5].parse().ok()?;

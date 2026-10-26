@@ -388,8 +388,8 @@ impl VoiceSignaling {
 
     /// Send JSON payload
     async fn send_json(&self, payload: serde_json::Value) -> VoiceResult<()> {
-        let msg = Message::Text(serde_json::to_string(&payload)?);
-        if let Some(ws) = self.ws_stream.read().as_ref() {
+        let _msg = Message::Text(serde_json::to_string(&payload)?);
+        if let Some(_ws) = self.ws_stream.read().as_ref() {
             // We can't send directly here because we need mutable access
             // In a real implementation, we'd use a channel to send messages
         }
@@ -419,10 +419,15 @@ impl VoiceSignaling {
                     }
                 }
 
-                // Send heartbeat
-                if let Err(e) = Self::send_heartbeat(&mut ws_stream.write(), *heartbeat_interval.read() as u64).await {
-                    error!("Failed to send voice heartbeat: {}", e);
-                    break;
+                // Send heartbeat - take the ws_stream out of the lock, use it, then put it back
+                let mut ws_opt = ws_stream.write();
+                if let Some(mut ws) = ws_opt.take() {
+                    if let Err(e) = Self::send_heartbeat(&mut ws, *heartbeat_interval.read() as u64).await {
+                        error!("Failed to send voice heartbeat: {}", e);
+                        *ws_opt = Some(ws);
+                        break;
+                    }
+                    *ws_opt = Some(ws);
                 }
             }
             info!("Voice heartbeat loop ended");

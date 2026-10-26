@@ -303,10 +303,10 @@ impl VoiceConnection {
 
     /// Audio send loop
     fn start_send_loop(&self) {
-        let send_pipeline = self.send_pipeline.clone();
-        let event_tx = self.event_tx.clone();
-        let speaking = self.speaking.clone();
-        let config = self.config.clone();
+        let _send_pipeline = self.send_pipeline.clone();
+        let _event_tx = self.event_tx.clone();
+        let _speaking = self.speaking.clone();
+        let _config = self.config.clone();
 
         tokio::spawn(async move {
             // In a real implementation, this would read from the audio capture device
@@ -317,8 +317,8 @@ impl VoiceConnection {
 
     /// Audio receive loop
     fn start_receive_loop(&self) {
-        let recv_pipeline = self.recv_pipeline.clone();
-        let event_tx = self.event_tx.clone();
+        let _recv_pipeline = self.recv_pipeline.clone();
+        let _event_tx = self.event_tx.clone();
 
         tokio::spawn(async move {
             // In a real implementation, this would read from the UDP socket
