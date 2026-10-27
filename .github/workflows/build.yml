@@ -165,14 +165,14 @@ jobs:
             ${{ runner.os }}-cargo-ps5-
 
       - name: Build workspace (check only)
-        run: cargo check --workspace --target aarch64-unknown-freebsd
+        run: cargo check --workspace --target aarch64-unknown-freebsd --no-default-features --features ps5-platform/ps5,ui/ps5
         env:
           PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
           CC_aarch64_unknown_freebsd: ${{ env.CLANG_CMD }}
           AR_aarch64_unknown_freebsd: ${{ env.AR_CMD }}
 
       - name: Build release binary
-        run: cargo build --release --workspace --target aarch64-unknown-freebsd --bin discord-app
+        run: cargo build --release --workspace --target aarch64-unknown-freebsd --no-default-features --features ps5-platform/ps5,ui/ps5 --bin discord-app
         env:
           PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
           CC_aarch64_unknown_freebsd: ${{ env.CLANG_CMD }}

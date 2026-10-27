@@ -12,8 +12,6 @@ ps5-platform = { path = "../ps5-platform" }
 
 tokio = { workspace = true }
 imgui = { workspace = true }
-imgui-opengl-renderer = { workspace = true }
-gl = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 parking_lot = { workspace = true }
@@ -22,3 +20,14 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
 uuid = { workspace = true, features = ["v4", "serde"] }
+
+# Linux-specific OpenGL rendering
+imgui-opengl-renderer = { version = "0.12", optional = true }
+gl = { version = "0.14", optional = true }
+glow = { version = "0.14", optional = true }
+
+[features]
+default = ["linux-renderer"]
+linux-renderer = ["imgui-opengl-renderer", "gl", "glow"]
+# PS5 target - uses native LibGNM renderer (stub for now)
+ps5 = []

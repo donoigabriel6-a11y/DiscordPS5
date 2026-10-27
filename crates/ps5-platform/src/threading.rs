@@ -1,6 +1,10 @@
 //! PS5 Threading and Priority Management
 //!
-//! Provides thread priority and affinity management for real-time audio/video
+//! Provides thread priority and affinity management for real-time audio/video.
+//! On Linux, uses pthread APIs. On PS5/FreeBSD, provides stubs.
+
+#[cfg(feature = "linux-input")]
+use num_cpus;
 
 use std::thread;
 use std::sync::Arc;
@@ -179,7 +183,11 @@ pub fn init_threading() -> PlatformResult<()> {
     set_thread_priority(ThreadPriority::High)?;
 
     // Log CPU count
+    #[cfg(feature = "linux-input")]
     let num_cpus = num_cpus::get();
+    #[cfg(not(feature = "linux-input"))]
+    let num_cpus = 8; // PS5 has 8 cores
+
     info!("Detected {} CPU cores", num_cpus);
 
     Ok(())

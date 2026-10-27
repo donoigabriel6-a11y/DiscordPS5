@@ -1,6 +1,7 @@
 //! PS5 Network Abstraction
 //!
-//! Provides network utilities for PS5 using BSD sockets
+//! Provides network utilities for PS5 using BSD sockets.
+//! On Linux, uses socket2 for optimization. On PS5/FreeBSD, uses standard tokio APIs.
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::sync::Arc;
@@ -97,7 +98,8 @@ pub fn get_interfaces() -> PlatformResult<Vec<InterfaceInfo>> {
     Ok(Vec::new())
 }
 
-/// Set socket buffer sizes for better throughput
+/// Set socket buffer sizes for better throughput (Linux only with socket2 feature)
+#[cfg(feature = "linux-network")]
 pub fn optimize_tcp_stream(stream: &TcpStream) -> PlatformResult<()> {
     let socket = socket2::Socket::from(stream.into_std()?);
     socket.set_send_buffer_size(256 * 1024)?;
@@ -106,10 +108,22 @@ pub fn optimize_tcp_stream(stream: &TcpStream) -> PlatformResult<()> {
     Ok(())
 }
 
+/// Set socket buffer sizes for better throughput (stub for PS5)
+#[cfg(not(feature = "linux-network"))]
+pub fn optimize_tcp_stream(_stream: &TcpStream) -> PlatformResult<()> {
+    // On PS5, socket options would be set differently
+    Ok(())
+}
+
 /// STUN client for NAT traversal
 pub mod stun {
     use super::*;
+
+    #[cfg(feature = "linux-network")]
     use std::net::UdpSocket as StdUdpSocket;
+
+    #[cfg(feature = "linux-network")]
+    use rand;
 
     #[derive(Debug, Clone)]
     pub struct StunResponse {
@@ -117,6 +131,8 @@ pub mod stun {
         pub xor_mapped_address: Option<SocketAddr>,
     }
 
+    /// STUN request implementation (Linux only with socket2 and rand features)
+    #[cfg(feature = "linux-network")]
     pub fn stun_request(server: &str, port: u16) -> PlatformResult<StunResponse> {
         let socket = StdUdpSocket::bind("0.0.0.0:0")?;
         socket.set_read_timeout(Some(Duration::from_secs(5)))?;
@@ -139,6 +155,15 @@ pub mod stun {
         // Parse response (simplified)
         // Real implementation would properly parse STUN attributes
 
+        Ok(StunResponse {
+            mapped_address: "0.0.0.0:0".parse().unwrap(),
+            xor_mapped_address: None,
+        })
+    }
+
+    /// STUN request stub for PS5
+    #[cfg(not(feature = "linux-network"))]
+    pub fn stun_request(_server: &str, _port: u16) -> PlatformResult<StunResponse> {
         Ok(StunResponse {
             mapped_address: "0.0.0.0:0".parse().unwrap(),
             xor_mapped_address: None,

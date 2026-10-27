@@ -20,3 +20,18 @@ pub use audio::*;
 pub use filesystem::*;
 pub use network::*;
 pub use threading::*;
+
+/// Initialize the PS5 platform
+/// This initializes threading and other platform subsystems.
+pub fn init_platform() -> crate::Result<()> {
+    info!("Initializing PS5 platform abstraction layer");
+
+    // Initialize threading subsystem
+    threading::init_threading()?;
+
+    // Initialize filesystem
+    filesystem::init_data_dir()?;
+
+    info!("PS5 platform initialized successfully");
+    Ok(())
+}

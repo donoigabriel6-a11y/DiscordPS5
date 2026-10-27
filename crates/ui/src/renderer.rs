@@ -1,19 +1,28 @@
-//! OpenGL/ImGui Renderer
+//! OpenGL/ImGui Renderer (Linux only)
 //!
-//! ImGui renderer using OpenGL for the PS5 platform.
+//! ImGui renderer using OpenGL for the Linux platform.
+//! On PS5/FreeBSD, provides stub implementations that will use native LibGNM APIs.
 
+#[cfg(feature = "linux-renderer")]
 use std::sync::Arc;
+#[cfg(feature = "linux-renderer")]
 use anyhow::{Context, Result};
+#[cfg(feature = "linux-renderer")]
 use glow::HasContext;
+#[cfg(feature = "linux-renderer")]
 use imgui::{Context as ImGuiContext, FontSource, FontConfig, Ui};
+#[cfg(feature = "linux-renderer")]
 use imgui_opengl_renderer::Renderer as ImGuiOpenGLRenderer;
+#[cfg(feature = "linux-renderer")]
 use parking_lot::RwLock;
+#[cfg(feature = "linux-renderer")]
 use ps5_platform::graphics::{GbmSurface, EglContext};
 use tracing::{debug, info, warn};
 
 use crate::theme::apply_discord_theme;
 
-/// OpenGL/ImGui renderer for PS5
+/// OpenGL/ImGui renderer for Linux
+#[cfg(feature = "linux-renderer")]
 pub struct Renderer {
     imgui: Arc<RwLock<ImGuiContext>>,
     opengl_renderer: Option<ImGuiOpenGLRenderer>,
@@ -26,6 +35,14 @@ pub struct Renderer {
     dpi_scale: f32,
 }
 
+/// Stub renderer for PS5 (no OpenGL)
+#[cfg(not(feature = "linux-renderer"))]
+pub struct Renderer {
+    viewport_size: [u32; 2],
+    frame_count: u64,
+}
+
+#[cfg(feature = "linux-renderer")]
 impl Renderer {
     /// Create a new renderer with the given GBM surface and EGL context
     pub fn new(
@@ -173,7 +190,69 @@ impl Renderer {
     }
 }
 
-/// Create glow OpenGL context from EGL
+#[cfg(not(feature = "linux-renderer"))]
+impl Renderer {
+    /// Create a new stub renderer for PS5
+    pub fn new(
+        _surface: GbmSurface,
+        _egl_context: EglContext,
+    ) -> Result<Self> {
+        info!("Creating PS5 renderer stub (LibGNM not yet implemented)");
+        Ok(Self {
+            viewport_size: [1920, 1080],
+            frame_count: 0,
+        })
+    }
+
+    /// Get the ImGui context (not available on PS5 stub)
+    pub fn imgui(&self) -> ! {
+        panic!("ImGui context not available on PS5 stub renderer")
+    }
+
+    /// Start a new frame (stub)
+    pub fn new_frame(&mut self) -> Result<()> {
+        self.frame_count += 1;
+        Ok(())
+    }
+
+    /// Render (stub)
+    pub fn render(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    /// Resize the renderer (stub)
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.viewport_size = [width, height];
+        debug!("PS5 stub renderer resized to {}x{}", width, height);
+    }
+
+    /// Set DPI scale factor (stub)
+    pub fn set_dpi_scale(&mut self, _scale: f32) {
+    }
+
+    /// Get current frame count
+    pub fn frame_count(&self) -> u64 {
+        self.frame_count
+    }
+
+    /// Get viewport size
+    pub fn viewport_size(&self) -> [u32; 2] {
+        self.viewport_size
+    }
+
+    /// Get average FPS
+    pub fn average_fps(&self) -> f32 {
+        0.0
+    }
+
+    /// Shutdown the renderer (stub)
+    pub fn shutdown(&mut self) {
+        info!("Shutting down PS5 stub renderer");
+    }
+}
+
+/// Create glow OpenGL context from EGL (Linux only)
+#[cfg(feature = "linux-renderer")]
 fn create_gl_context(egl_context: &EglContext) -> Result<Arc<glow::Context>> {
     // Get function pointers from EGL
     let get_proc_address = |name: &str| {
@@ -202,7 +281,8 @@ fn create_gl_context(egl_context: &EglContext) -> Result<Arc<glow::Context>> {
     Ok(Arc::new(gl))
 }
 
-/// Load fonts for ImGui
+/// Load fonts for ImGui (Linux only)
+#[cfg(feature = "linux-renderer")]
 fn load_fonts(imgui: &mut ImGuiContext) -> Result<()> {
     let fonts = imgui.fonts();
 
@@ -251,12 +331,14 @@ fn load_fonts(imgui: &mut ImGuiContext) -> Result<()> {
     Ok(())
 }
 
-/// RAII guard for ImGui frame
+/// RAII guard for ImGui frame (Linux only)
+#[cfg(feature = "linux-renderer")]
 pub struct FrameGuard<'a> {
     ui: Option<Ui>,
     renderer: &'a mut Renderer,
 }
 
+#[cfg(feature = "linux-renderer")]
 impl<'a> FrameGuard<'a> {
     pub fn new(renderer: &'a mut Renderer) -> Result<Self> {
         let ui = renderer.new_frame()?;
@@ -275,6 +357,7 @@ impl<'a> FrameGuard<'a> {
     }
 }
 
+#[cfg(feature = "linux-renderer")]
 impl<'a> Drop for FrameGuard<'a> {
     fn drop(&mut self) {
         if self.ui.is_some() {
