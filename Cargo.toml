@@ -21,10 +21,10 @@ clap = { version = "4.5", features = ["derive"] }
 config = { version = "0.14", features = ["toml"] }
 
 # WebSocket
-tungstenite = { version = "0.22", features = ["native-tls"] }
+tungstenite = { version = "0.22", features = ["rustls-tls-webpki"] }
 
 # HTTP
-reqwest = { version = "0.12", features = ["json", "native-tls", "gzip", "brotli"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls-webpki", "gzip", "brotli"] }
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -36,9 +36,14 @@ webrtc = { version = "0.11" }
 webrtc-util = "0.11"
 opus = "0.4"
 
-# OpenSSL for native-tls (vendored for cross-compilation)
-openssl = { version = "0.10", features = ["vendored"] }
-openssl-sys = { version = "0.9", features = ["vendored"] }
+# TLS - rustls with pure-Rust crypto provider (aws-lc-rs) for cross-compilation
+rustls = { version = "0.23", features = ["aws-lc-rs", "std"] }
+webpki = { version = "0.23", features = ["alloc"] }
+webpki-roots = "0.25"
+
+# Audio
+cpal = { version = "0.15", features = ["jack"] }
+rubato = "0.13"
 
 # Graphics
 gl = "0.14"

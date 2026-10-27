@@ -119,74 +119,6 @@ jobs:
           # Always succeed - SDK is optional for build
           exit 0
 
-      - name: Build OpenSSL for PS5 target (aarch64-unknown-freebsd)
-        run: |
-          # Build OpenSSL from source for aarch64-unknown-freebsd (FreeBSD ARM64)
-          # Use OpenSSL 3.4.0 which has better FreeBSD ARM64 support
-          OPENSSL_VERSION="3.4.0"
-          OPENSSL_SRC_DIR="/tmp/openssl-${OPENSSL_VERSION}"
-          OPENSSL_INSTALL_DIR="/opt/openssl-ps5"
-
-          echo "OPENSSL_DIR=${OPENSSL_INSTALL_DIR}" >> $GITHUB_ENV
-
-          # Download OpenSSL source
-          wget -q "https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz" -O /tmp/openssl.tar.gz
-          tar -xzf /tmp/openssl.tar.gz -C /tmp
-
-          cd "${OPENSSL_SRC_DIR}"
-
-          # Determine compiler
-          if [ -f "${{ env.PS5SDK_DIR }}/bin/ps5-clang" ]; then
-            CC="${{ env.PS5SDK_DIR }}/bin/ps5-clang"
-            AR="${{ env.PS5SDK_DIR }}/bin/ps5-ar"
-          elif [ -f "${{ env.PS5SDK_DIR }}/bin/clang" ]; then
-            CC="${{ env.PS5SDK_DIR }}/bin/clang"
-            AR="${{ env.PS5SDK_DIR }}/bin/llvm-ar"
-          else
-            CC="clang"
-            AR="llvm-ar"
-          fi
-
-          # Configure OpenSSL for FreeBSD ARM64
-          # Try freebsd-aarch64 target (available in OpenSSL 3.4+)
-          # If that fails, fall back to BSD-generic64
-          if ./Configure freebsd-aarch64 \
-            --prefix="${OPENSSL_INSTALL_DIR}" \
-            --openssldir="${OPENSSL_INSTALL_DIR}/ssl" \
-            CC="${CC}" \
-            AR="${AR}" \
-            -fPIC \
-            no-shared \
-            no-async \
-            no-tests \
-            no-docs \
-            no-engine \
-            no-legacy; then
-            echo "Configured with freebsd-aarch64 target"
-          else
-            echo "freebsd-aarch64 not available, trying BSD-generic64..."
-            ./Configure BSD-generic64 \
-              --prefix="${OPENSSL_INSTALL_DIR}" \
-              --openssldir="${OPENSSL_INSTALL_DIR}/ssl" \
-              CC="${CC}" \
-              AR="${AR}" \
-              -fPIC \
-              no-shared \
-              no-async \
-              no-tests \
-              no-docs \
-              no-engine \
-              no-legacy
-          fi
-
-          # Build and install - show full output to catch errors
-          make -j$(nproc)
-          sudo make install_sw
-
-          echo "OpenSSL built and installed to ${OPENSSL_INSTALL_DIR}"
-          ls -la "${OPENSSL_INSTALL_DIR}/include/" 2>/dev/null || true
-          ls -la "${OPENSSL_INSTALL_DIR}/lib/" 2>/dev/null || true
-
       - name: Configure cargo for PS5SDK
         run: |
           mkdir -p ~/.cargo
@@ -211,18 +143,10 @@ jobs:
           ar = "${AR_CMD}"
 
           [target.aarch64-unknown-freebsd.env]
-          OPENSSL_NO_PKG_CONFIG = "1"
-          # CC and AR for openssl-sys vendored build
-          CC = "${CLANG_CMD}"
-          AR = "${AR_CMD}"
-          # Point to pre-built OpenSSL for target
-          OPENSSL_DIR = "${{ env.OPENSSL_DIR }}"
-          OPENSSL_LIB_DIR = "${{ env.OPENSSL_DIR }}/lib"
-          OPENSSL_INCLUDE_DIR = "${{ env.OPENSSL_DIR }}/include"
+          # No longer need OPENSSL config since we use rustls with pure-Rust crypto
 
           [env]
           PS5_SDK_PATH = "${{ env.PS5SDK_DIR }}"
-          OPENSSL_DIR = "${{ env.OPENSSL_DIR }}"
           # Use shell \$PATH to preserve system paths (cargo, rustc, etc.)
           PATH = "${{ env.PS5SDK_DIR }}/bin:\${PATH}"
           CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_LINKER = "${CLANG_CMD}"
@@ -244,8 +168,6 @@ jobs:
         run: cargo check --workspace --target aarch64-unknown-freebsd
         env:
           PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
-          OPENSSL_DIR: ${{ env.OPENSSL_DIR }}
-          OPENSSL_NO_PKG_CONFIG: "1"
           CC_aarch64_unknown_freebsd: ${{ env.CLANG_CMD }}
           AR_aarch64_unknown_freebsd: ${{ env.AR_CMD }}
 
@@ -253,8 +175,6 @@ jobs:
         run: cargo build --release --workspace --target aarch64-unknown-freebsd --bin discord-app
         env:
           PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
-          OPENSSL_DIR: ${{ env.OPENSSL_DIR }}
-          OPENSSL_NO_PKG_CONFIG: "1"
           CC_aarch64_unknown_freebsd: ${{ env.CLANG_CMD }}
           AR_aarch64_unknown_freebsd: ${{ env.AR_CMD }}
 
