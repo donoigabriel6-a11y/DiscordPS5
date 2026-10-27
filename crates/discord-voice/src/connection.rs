@@ -21,9 +21,9 @@ use webrtc::peer_connection::configuration::RTCConfiguration;
 use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 use webrtc::peer_connection::RTCPeerConnection;
 use webrtc::rtp_transceiver::rtp_receiver::RTCRtpReceiver;
-use webrtc::track::TrackRemote;
-use webrtc::track::{TrackLocal, TrackLocalWriter, TrackLocalStaticRTP};
-use webrtc::rtp::RTCRtpCodecCapability;
+use webrtc::track::track_remote::TrackRemote;
+use webrtc::track::track_local::{TrackLocal, TrackLocalWriter, TrackLocalStaticRTP};
+use webrtc::rtp::codec::RTCRtpCodecCapability;
 
 use crate::{DiscordError, Result as VoiceResult, VoiceConfig, VoiceEvent, VoiceConnectionState};
 use crate::audio::{AudioSendPipeline, AudioReceivePipeline, RtpPacket, SrtpContext};
@@ -343,7 +343,7 @@ impl VoiceConnection {
 
     /// Write audio data from microphone
     pub async fn write_audio(&self, pcm_data: &[i16]) -> VoiceResult<()> {
-        if let Some(pipeline) = self.send_pipeline.read().as_ref() {
+        if let Some(mut pipeline) = self.send_pipeline.write().as_mut() {
             let packets = pipeline.encode_and_packetize(pcm_data)?;
             // In a real implementation, send packets via UDP socket
             for packet in packets {
