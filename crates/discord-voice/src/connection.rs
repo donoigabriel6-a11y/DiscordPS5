@@ -21,9 +21,9 @@ use webrtc::peer_connection::configuration::RTCConfiguration;
 use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 use webrtc::peer_connection::RTCPeerConnection;
 use webrtc::rtp_transceiver::rtp_receiver::RTCRtpReceiver;
-use webrtc::track::track_remote::TrackRemote;
-use webrtc::track::track_local::{TrackLocal, TrackLocalWriter, TrackLocalStaticRTP};
-use webrtc::rtp::codec::RTCRtpCodecCapability;
+use webrtc::track::TrackRemote;
+use webrtc::track::{TrackLocal, TrackLocalWriter, TrackLocalStaticRTP};
+use webrtc::rtp::RTCRtpCodecCapability;
 
 use crate::{DiscordError, Result as VoiceResult, VoiceConfig, VoiceEvent, VoiceConnectionState};
 use crate::audio::{AudioSendPipeline, AudioReceivePipeline, RtpPacket, SrtpContext};
@@ -38,7 +38,7 @@ pub struct VoiceConnection {
     state: Arc<RwLock<VoiceConnectionState>>,
     peer_connection: Arc<RwLock<Option<Arc<RTCPeerConnection>>>>,
     audio_track: Arc<RwLock<Option<Arc<TrackLocalStaticRTP>>>>,
-    remote_tracks: Arc<RwLock<HashMap<u32, Arc<dyn TrackRemote + Send + Sync>>>>,
+    remote_tracks: Arc<RwLock<HashMap<u32, Arc<TrackRemote>>>>,
     ssrc: Arc<RwLock<Option<u32>>>,
     event_tx: mpsc::UnboundedSender<VoiceEvent>,
     speaking: Arc<RwLock<bool>>,
@@ -268,7 +268,7 @@ impl VoiceConnection {
     }
 
     /// Handle incoming remote audio track
-    async fn handle_remote_track(track: Arc<dyn TrackRemote + Send + Sync>, event_tx: mpsc::UnboundedSender<VoiceEvent>) {
+    async fn handle_remote_track(track: Arc<TrackRemote>, event_tx: mpsc::UnboundedSender<VoiceEvent>) {
         let ssrc = track.ssrc();
 
         loop {
