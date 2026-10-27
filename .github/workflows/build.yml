@@ -64,15 +64,20 @@ jobs:
             "https://github.com/${{ env.PS5SDK_REPO }}.git" /tmp/PS5SDK
           cd /tmp/PS5SDK
 
-          # Build PS5SDK using the official build process
-          # The toolchain file is in the source directory, so PS5SDK must point to source
-          chmod +x build.sh
-
-          # Build with PS5SDK pointing to source directory (for toolchain file)
-          PS5SDK="/tmp/PS5SDK" ./build.sh
+          # Build PS5SDK using cmake directly (build.sh doesn't forward args)
+          # Disable examples to avoid build failures in example code
+          mkdir -p build
+          cd build
+          cmake -G Ninja \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_TOOLCHAIN_FILE=/tmp/PS5SDK/cmake/toolchain-ps5.cmake \
+            -DBUILD_EXAMPLES=OFF \
+            /tmp/PS5SDK
+          ninja
 
           # Install to target directory
-          sudo cmake --install build --prefix "$SDK_DIR"
+          sudo cmake --install . --prefix "$SDK_DIR"
 
           # Verify SDK installation
           echo "=== PS5SDK Installation ==="
