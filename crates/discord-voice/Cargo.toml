@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 discord-common = { path = "../common" }
 tokio = { workspace = true }
-tokio-tungstenite = { version = "0.22", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.22", features = ["rustls-tls-webpki-roots"] }
 webrtc = { workspace = true }
 webrtc-util = { workspace = true }
 opus = { workspace = true }
