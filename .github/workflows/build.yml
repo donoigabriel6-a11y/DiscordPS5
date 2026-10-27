@@ -77,8 +77,22 @@ jobs:
             /tmp/PS5SDK
           ninja
 
-          # Install to target directory
-          sudo cmake --install . --prefix "$SDK_DIR"
+          # Install to target directory manually (PS5SDK CMakeLists.txt has no install() commands)
+          sudo mkdir -p "$SDK_DIR/bin" "$SDK_DIR/lib" "$SDK_DIR/include"
+
+          # Copy compiler wrapper scripts
+          sudo cp /tmp/PS5SDK/cmake/ps5-clang "$SDK_DIR/bin/" 2>/dev/null || true
+          sudo cp /tmp/PS5SDK/cmake/ps5-clang++ "$SDK_DIR/bin/" 2>/dev/null || true
+          sudo cp /tmp/PS5SDK/cmake/ps5-ar "$SDK_DIR/bin/" 2>/dev/null || true
+          sudo cp /tmp/PS5SDK/cmake/ps5-ranlib "$SDK_DIR/bin/" 2>/dev/null || true
+          sudo cp /tmp/PS5SDK/cmake/ps5-ld "$SDK_DIR/bin/" 2>/dev/null || true
+
+          # Copy built libraries
+          sudo cp /tmp/PS5SDK/build/lib/*.a "$SDK_DIR/lib/" 2>/dev/null || true
+
+          # Copy headers
+          sudo cp -r /tmp/PS5SDK/include/* "$SDK_DIR/include/" 2>/dev/null || true
+          sudo cp -r /tmp/PS5SDK/ps5 "$SDK_DIR/include/" 2>/dev/null || true
 
           # Verify SDK installation
           echo "=== PS5SDK Installation ==="
