@@ -22,10 +22,8 @@ use webrtc::peer_connection::peer_connection_state::RTCPeerConnectionState;
 use webrtc::peer_connection::RTCPeerConnection;
 use webrtc::rtp_transceiver::rtp_receiver::RTCRtpReceiver;
 use webrtc::track::track_remote::TrackRemote;
-use webrtc::track::track_local::{TrackLocal, TrackLocalWriter};
-use webrtc::track::track_local::TrackLocalStaticRTP;
-use webrtc::rtp::codecs::RTCRtpCodecCapability;
-use webrtc::rtp::codecs::MIME_TYPE_OPUS;
+use webrtc::track::track_local::{TrackLocal, TrackLocalWriter, TrackLocalStaticRTP};
+use webrtc::rtp::codec::RTCRtpCodecCapability;
 
 use crate::{DiscordError, Result as VoiceResult, VoiceConfig, VoiceEvent, VoiceConnectionState};
 use crate::audio::{AudioSendPipeline, AudioReceivePipeline, RtpPacket, SrtpContext};
@@ -40,7 +38,7 @@ pub struct VoiceConnection {
     state: Arc<RwLock<VoiceConnectionState>>,
     peer_connection: Arc<RwLock<Option<Arc<RTCPeerConnection>>>>,
     audio_track: Arc<RwLock<Option<Arc<TrackLocalStaticRTP>>>>,
-    remote_tracks: Arc<RwLock<HashMap<u32, Arc<TrackRemote>>>>,
+    remote_tracks: Arc<RwLock<HashMap<u32, Arc<dyn TrackRemote + Send + Sync>>>>,
     ssrc: Arc<RwLock<Option<u32>>>,
     event_tx: mpsc::UnboundedSender<VoiceEvent>,
     speaking: Arc<RwLock<bool>>,
@@ -97,11 +95,27 @@ impl VoiceConnection {
         self.setup_track_handlers(peer_connection.clone()).await;
 
         // 5. Initialize ICE manager
-        let ice_event_tx = self.event_tx.clone();
+        let (ice_event_tx, mut ice_event_rx) = mpsc::unbounded_channel::<IceEvent>();
         let ice_manager = IceManager::new(peer_connection.clone(), ice_event_tx);
         ice_manager.initialize(default_ice_servers()).await?;
         ice_manager.start_monitoring();
         *self.ice_manager.write() = Some(ice_manager);
+
+        // Forward ICE events to VoiceEvent channel
+        let event_tx = self.event_tx.clone();
+        tokio::spawn(async move {
+            while let Some(ice_event) = ice_event_rx.recv().await {
+                match ice_event {
+                    IceEvent::StateChanged(state) => {
+                        event_tx.send(VoiceEvent::IceStateChanged(state)).ok();
+                    }
+                    IceEvent::Error(e) => {
+                        event_tx.send(VoiceEvent::Error(e)).ok();
+                    }
+                    _ => {}
+                }
+            }
+        });
 
         // 6. Create Opus codec
         let opus_codec = OpusCodec::new()?;
@@ -166,7 +180,7 @@ impl VoiceConnection {
                 return Ok((ssrc, ip, port, secret_key));
             }
 
-            if matches!(signaling.state.read(), SignalingState::Failed) {
+            if matches!(signaling.state(), SignalingState::Failed) {
                 return Err(DiscordError::VoiceConnection("Signaling failed".to_string()).into());
             }
         }
@@ -206,7 +220,7 @@ impl VoiceConnection {
     fn create_audio_track(&self) -> VoiceResult<Arc<TrackLocalStaticRTP>> {
         let track = Arc::new(TrackLocalStaticRTP::new(
             RTCRtpCodecCapability {
-                mime_type: MIME_TYPE_OPUS.to_string(),
+                mime_type: "audio/opus".to_string(),
                 clock_rate: 48000,
                 channels: 2,
                 sdp_fmtp_line: "minptime=10;useinbandfec=1".to_string(),
@@ -226,19 +240,19 @@ impl VoiceConnection {
         let event_tx = self.event_tx.clone();
 
         pc.on_track(Box::new(move |track, receiver, _| {
-            // In webrtc v0.11, use downcast instead of downcast_arc
-            if let Ok(remote_track) = track.downcast::<TrackRemote>() {
-                let ssrc_val = remote_track.ssrc();
-                *ssrc.write() = Some(ssrc_val);
-                remote_tracks.write().insert(ssrc_val, remote_track.clone());
+            // In webrtc v0.11, track is Arc<dyn TrackRemote + Send + Sync>
+            // We can call trait methods directly without downcasting
+            let ssrc_val = track.ssrc();
+            *ssrc.write() = Some(ssrc_val);
+            remote_tracks.write().insert(ssrc_val, track.clone());
 
-                info!("Remote track added: SSRC={}", ssrc_val);
+            info!("Remote track added: SSRC={}", ssrc_val);
 
-                let event_tx = event_tx.clone();
-                tokio::spawn(async move {
-                    Self::handle_remote_track(remote_track, event_tx).await;
-                });
-            }
+            let event_tx = event_tx.clone();
+            let track_clone = track.clone();
+            tokio::spawn(async move {
+                Self::handle_remote_track(track_clone, event_tx).await;
+            });
             Box::pin(async {})
         }));
 
@@ -254,7 +268,7 @@ impl VoiceConnection {
     }
 
     /// Handle incoming remote audio track
-    async fn handle_remote_track(track: Arc<TrackRemote>, event_tx: mpsc::UnboundedSender<VoiceEvent>) {
+    async fn handle_remote_track(track: Arc<dyn TrackRemote + Send + Sync>, event_tx: mpsc::UnboundedSender<VoiceEvent>) {
         let ssrc = track.ssrc();
 
         loop {

@@ -49,6 +49,7 @@ pub enum VoiceEvent {
     Disconnected,
     AudioReceived { ssrc: u32, data: Vec<u8> },
     SpeakingUpdate { ssrc: u32, speaking: bool },
+    IceStateChanged(crate::ice::IceConnectionState),
     Error(String),
 }
 

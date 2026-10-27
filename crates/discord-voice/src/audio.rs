@@ -215,6 +215,7 @@ impl RtpPacket {
 }
 
 /// SRTP context for encryption/decryption
+#[derive(Clone)]
 pub struct SrtpContext {
     master_key: [u8; SRTP_MASTER_KEY_SIZE],
     master_salt: [u8; SRTP_MASTER_SALT_SIZE],

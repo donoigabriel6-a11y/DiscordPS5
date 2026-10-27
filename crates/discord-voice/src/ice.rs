@@ -361,7 +361,8 @@ pub fn ice_servers_with_turn(turn_url: &str, username: &str, credential: &str) -
         urls: vec![turn_url.to_string()],
         username: username.to_string(),
         credential: credential.to_string(),
-        credential_type: webrtc::ice_transport::ice_server::RTCIceCredentialType::Password,
+        // credential_type is private in webrtc v0.11, omit it
+        ..Default::default()
     });
     servers
 }

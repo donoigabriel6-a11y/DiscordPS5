@@ -464,6 +464,11 @@ impl VoiceSignaling {
         matches!(*self.state.read(), SignalingState::Connected)
     }
 
+    /// Get current signaling state
+    pub fn state(&self) -> SignalingState {
+        *self.state.read()
+    }
+
     /// Disconnect from voice signaling
     pub async fn disconnect(&self) -> VoiceResult<()> {
         info!("Disconnecting voice signaling...");
