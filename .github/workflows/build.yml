@@ -64,15 +64,16 @@ jobs:
             "https://github.com/${{ env.PS5SDK_REPO }}.git" /tmp/PS5SDK
           cd /tmp/PS5SDK
 
-          # Build PS5SDK using cmake directly (build.sh doesn't forward args)
-          # Disable examples to avoid build failures in example code
+          # Patch CMakeLists.txt to disable building examples (they have compilation errors)
+          sed -i '/add_subdirectory("examples\//d' CMakeLists.txt
+
+          # Build PS5SDK using cmake directly
           mkdir -p build
           cd build
           cmake -G Ninja \
             -DCMAKE_C_COMPILER=clang \
             -DCMAKE_CXX_COMPILER=clang++ \
             -DCMAKE_TOOLCHAIN_FILE=/tmp/PS5SDK/cmake/toolchain-ps5.cmake \
-            -DBUILD_EXAMPLES=OFF \
             /tmp/PS5SDK
           ninja
 
