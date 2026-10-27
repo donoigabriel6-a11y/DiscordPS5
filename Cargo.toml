@@ -55,10 +55,6 @@ drm = "0.1"
 imgui = "0.11"
 imgui-opengl-renderer = "0.12"
 
-# Audio
-cpal = { version = "0.15", features = ["jack"] }
-rubato = "0.13"
-
 # Storage
 rusqlite = { version = "0.31", features = ["bundled"] }
 
