@@ -16,7 +16,7 @@ libc = { workspace = true }
 # Linux-specific dependencies (for development/testing on Linux)
 drm = { version = "0.1", optional = true }
 gbm = { version = "0.1", optional = true }
-egl = { version = "0.9", optional = true }
+egl = { version = "0.2", optional = true }
 gl = { version = "0.14", optional = true }
 cpal = { version = "0.15", optional = true, features = ["jack"] }
 rubato = { version = "0.13", optional = true }
