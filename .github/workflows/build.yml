@@ -122,7 +122,8 @@ jobs:
       - name: Build OpenSSL for PS5 target (aarch64-unknown-freebsd)
         run: |
           # Build OpenSSL from source for aarch64-unknown-freebsd (FreeBSD ARM64)
-          OPENSSL_VERSION="3.2.1"
+          # Use OpenSSL 3.4.0 which has better FreeBSD ARM64 support
+          OPENSSL_VERSION="3.4.0"
           OPENSSL_SRC_DIR="/tmp/openssl-${OPENSSL_VERSION}"
           OPENSSL_INSTALL_DIR="/opt/openssl-ps5"
 
@@ -146,9 +147,10 @@ jobs:
             AR="llvm-ar"
           fi
 
-          # Configure OpenSSL for FreeBSD ARM64 (aarch64-unknown-freebsd)
-          # Use freebsd-arm64 target for FreeBSD on ARM64
-          ./Configure freebsd-arm64 \
+          # Configure OpenSSL for FreeBSD ARM64
+          # Try freebsd-aarch64 target (available in OpenSSL 3.4+)
+          # If that fails, fall back to BSD-generic64
+          if ./Configure freebsd-aarch64 \
             --prefix="${OPENSSL_INSTALL_DIR}" \
             --openssldir="${OPENSSL_INSTALL_DIR}/ssl" \
             CC="${CC}" \
@@ -159,8 +161,23 @@ jobs:
             no-tests \
             no-docs \
             no-engine \
-            no-legacy \
-            2>&1 | tail -30
+            no-legacy; then
+            echo "Configured with freebsd-aarch64 target"
+          else
+            echo "freebsd-aarch64 not available, trying BSD-generic64..."
+            ./Configure BSD-generic64 \
+              --prefix="${OPENSSL_INSTALL_DIR}" \
+              --openssldir="${OPENSSL_INSTALL_DIR}/ssl" \
+              CC="${CC}" \
+              AR="${AR}" \
+              -fPIC \
+              no-shared \
+              no-async \
+              no-tests \
+              no-docs \
+              no-engine \
+              no-legacy
+          fi
 
           # Build and install - show full output to catch errors
           make -j$(nproc)
