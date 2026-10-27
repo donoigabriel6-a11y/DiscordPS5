@@ -1,16 +1,16 @@
 # PS5 target configuration
-# Linker and ar are set via environment variables in CI (CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_LINKER/AR)
-# For local development, set them in ~/.cargo/config.toml or via CC_aarch64_unknown_freebsd/AR_aarch64_unknown_freebsd env vars
-# [target.aarch64-unknown-freebsd]
-# linker = "aarch64-unknown-freebsd-clang"
-# ar = "aarch64-unknown-freebsd-ar"
+# Linker and ar are set via environment variables in CI (CARGO_TARGET_X86_64_UNKNOWN_FREEBSD_LINKER/AR)
+# For local development, set them in ~/.cargo/config.toml or via CC_x86_64_unknown_freebsd/AR_x86_64_unknown_freebsd env vars
+# [target.x86_64-unknown-freebsd]
+# linker = "x86_64-unknown-freebsd-clang"
+# ar = "x86_64-unknown-freebsd-ar"
 
 # For running on PS5 via SSH
 # runner = "ssh ps5-user@ps5-ip"
 
 # Note: Default target removed - workflows specify target explicitly
 # [build]
-# target = "aarch64-unknown-freebsd"
+# target = "x86_64-unknown-freebsd"
 
 [env]
 # PS5SDK paths - adjust based on your PS5SDK installation

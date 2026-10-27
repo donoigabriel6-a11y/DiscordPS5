@@ -14,7 +14,7 @@ env:
 
 jobs:
   build:
-    name: Build for PS5 (aarch64-unknown-freebsd) with PS5SDK
+    name: Build for PS5 (x86_64-unknown-freebsd) with PS5SDK
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -30,7 +30,7 @@ jobs:
       - name: Install Rust toolchain in container
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-unknown-freebsd
+          targets: x86_64-unknown-freebsd
 
       - name: Verify PS5SDK in container
         run: |
@@ -39,7 +39,7 @@ jobs:
           echo "PS5SDK_DIR: $PS5SDK_DIR"
           which ps5-clang || which clang
           ps5-clang --version || clang --version
-          ps5-clang --target=aarch64-unknown-freebsd -v 2>&1 | head -30 || true
+          ps5-clang --target=x86_64-unknown-freebsd -v 2>&1 | head -30 || true
           ls -la $PS5SDK_DIR/
 
       - name: Install Python dependencies for packaging
@@ -50,9 +50,9 @@ jobs:
         run: |
           mkdir -p ~/.cargo
 
-          # PS5SDK provides ps5-clang and ps5-ar which are configured for aarch64-unknown-freebsd
+          # PS5SDK provides ps5-clang and ps5-ar which are configured for x86_64-unknown-freebsd
           cat > ~/.cargo/config.toml << EOF
-          [target.aarch64-unknown-freebsd]
+          [target.x86_64-unknown-freebsd]
           linker = "ps5-clang"
           ar = "ps5-ar"
 
@@ -60,9 +60,9 @@ jobs:
           PS5_SDK_PATH = "$PS5SDK_DIR"
           # Use shell \$PATH to preserve system paths (cargo, rustc, etc.)
           PATH = "$PS5SDK_DIR/bin:\${PATH}"
-          CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_LINKER = "ps5-clang"
-          CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_AR = "ps5-ar"
-          CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_RUNNER = "ps5-run"
+          CARGO_TARGET_X86_64_UNKNOWN_FREEBSD_LINKER = "ps5-clang"
+          CARGO_TARGET_X86_64_UNKNOWN_FREEBSD_AR = "ps5-ar"
+          CARGO_TARGET_X86_64_UNKNOWN_FREEBSD_RUNNER = "ps5-run"
           EOF
 
       - name: Cache cargo registry
@@ -77,25 +77,25 @@ jobs:
             ${{ runner.os }}-cargo-ps5-
 
       - name: Build workspace (check only)
-        run: cargo check --workspace --target aarch64-unknown-freebsd --no-default-features --features ps5-platform/ps5,discord-ui/ps5
+        run: cargo check --workspace --target x86_64-unknown-freebsd --no-default-features --features ps5-platform/ps5,discord-ui/ps5
 
       - name: Build release binary
-        run: cargo build --release --workspace --target aarch64-unknown-freebsd --no-default-features --features ps5-platform/ps5,discord-ui/ps5 --bin discord-app
+        run: cargo build --release --workspace --target x86_64-unknown-freebsd --no-default-features --features ps5-platform/ps5,discord-ui/ps5 --bin discord-app
 
       - name: Verify binary
         run: |
-          file target/aarch64-unknown-freebsd/release/discord-app
-          ls -lh target/aarch64-unknown-freebsd/release/discord-app
+          file target/x86_64-unknown-freebsd/release/discord-app
+          ls -lh target/x86_64-unknown-freebsd/release/discord-app
 
           # Check if it's a valid FreeBSD/PS5 binary
           if command -v readelf >/dev/null; then
-            readelf -h target/aarch64-unknown-freebsd/release/discord-app | head -20
+            readelf -h target/x86_64-unknown-freebsd/release/discord-app | head -20
           fi
 
       - name: Build PS5 Package (.pkg)
         run: |
           python3 packaging/build_pkg.py \
-            target/aarch64-unknown-freebsd/release/discord-app \
+            target/x86_64-unknown-freebsd/release/discord-app \
             -o discord-ps5.pkg \
             --title-id DISCORDPS5 \
             --title "Discord PS5" \
@@ -109,7 +109,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: discord-ps5-homebrew-binary
-          path: target/aarch64-unknown-freebsd/release/discord-app
+          path: target/x86_64-unknown-freebsd/release/discord-app
           retention-days: 30
 
       - name: Upload PS5 Package artifact
@@ -124,7 +124,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            target/aarch64-unknown-freebsd/release/discord-app
+            target/x86_64-unknown-freebsd/release/discord-app
             discord-ps5.pkg
           generate_release_notes: true
           tag_name: ${{ github.ref_name }}
