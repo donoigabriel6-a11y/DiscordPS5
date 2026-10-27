@@ -9,57 +9,94 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # Use Docker image with PS5SDK pre-installed for reliable cross-compilation
-  DOCKER_IMAGE: ghcr.io/ps5dev/ps5sdk:latest
+  # Homebrew PS5SDK version/release to use
+  PS5SDK_VERSION: "main"
+  PS5SDK_REPO: "PS5Dev/PS5SDK"
 
 jobs:
   build:
-    name: Build for PS5 (x86_64-unknown-freebsd) with PS5SDK
+    name: Build for PS5 (x86_64-unknown-freebsd) with Homebrew PS5SDK
     runs-on: ubuntu-latest
     timeout-minutes: 60
-
-    # Use Docker container with PS5SDK pre-installed
-    container:
-      image: ${{ env.DOCKER_IMAGE }}
-      options: --user root
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain in container
+      - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-unknown-freebsd
 
-      - name: Verify PS5SDK in container
+      - name: Install system dependencies
         run: |
-          echo "=== PS5SDK Environment ==="
-          echo "PATH: $PATH"
-          echo "PS5SDK_DIR: $PS5SDK_DIR"
-          which ps5-clang || which clang
-          ps5-clang --version || clang --version
-          ps5-clang --target=x86_64-unknown-freebsd -v 2>&1 | head -30 || true
-          ls -la $PS5SDK_DIR/
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            lld \
+            llvm \
+            cmake \
+            ninja-build \
+            git \
+            wget \
+            unzip \
+            python3 \
+            python3-pip \
+            libssl-dev \
+            pkg-config \
+            libxcb1-dev \
+            perl
 
       - name: Install Python dependencies for packaging
         run: |
           pip3 install pillow
 
+      - name: Install Homebrew PS5SDK from source
+        id: ps5sdk
+        run: |
+          echo "=== Installing PS5SDK from source ==="
+
+          SDK_DIR="/opt/ps5sdk"
+          echo "PS5SDK_DIR=$SDK_DIR" >> $GITHUB_ENV
+
+          # Clone PS5SDK
+          git clone --depth 1 --branch "${{ env.PS5SDK_VERSION }}" \
+            "https://github.com/${{ env.PS5SDK_REPO }}.git" /tmp/PS5SDK
+          cd /tmp/PS5SDK
+
+          # Build PS5SDK using the official build process
+          # The SDK provides ps5-clang and ps5-ar for cross-compilation
+          chmod +x build.sh
+          PS5SDK="$SDK_DIR" ./build.sh
+
+          # Verify SDK installation
+          echo "=== PS5SDK Installation ==="
+          ls -la "$SDK_DIR/"
+
+          # Check for ps5-clang
+          if [ -f "$SDK_DIR/bin/ps5-clang" ]; then
+            echo "PS5SDK installed successfully (ps5-clang found)"
+            "$SDK_DIR/bin/ps5-clang" --version
+          else
+            echo "ERROR: PS5SDK compiler not found at $SDK_DIR/bin/ps5-clang"
+            echo "SDK directory contents:"
+            find "$SDK_DIR" -type f | head -30
+            exit 1
+          fi
+
       - name: Configure cargo for PS5 target
         run: |
           mkdir -p ~/.cargo
 
-          # PS5SDK provides ps5-clang and ps5-ar which are configured for x86_64-unknown-freebsd
           cat > ~/.cargo/config.toml << EOF
           [target.x86_64-unknown-freebsd]
           linker = "ps5-clang"
           ar = "ps5-ar"
 
           [env]
-          PS5_SDK_PATH = "$PS5SDK_DIR"
+          PS5_SDK_PATH = "${{ env.PS5SDK_DIR }}"
           # Use shell \$PATH to preserve system paths (cargo, rustc, etc.)
-          PATH = "$PS5SDK_DIR/bin:\${PATH}"
+          PATH = "${{ env.PS5SDK_DIR }}/bin:\${PATH}"
           CARGO_TARGET_X86_64_UNKNOWN_FREEBSD_LINKER = "ps5-clang"
           CARGO_TARGET_X86_64_UNKNOWN_FREEBSD_AR = "ps5-ar"
           CARGO_TARGET_X86_64_UNKNOWN_FREEBSD_RUNNER = "ps5-run"
@@ -78,9 +115,21 @@ jobs:
 
       - name: Build workspace (check only)
         run: cargo check --workspace --target x86_64-unknown-freebsd --no-default-features --features ps5-platform/ps5,discord-ui/ps5
+        env:
+          PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
+          CC_x86_64_unknown_freebsd: ps5-clang
+          AR_x86_64_unknown_freebsd: ps5-ar
+          CARGO_TARGET_X86_64_UNKNOWN_FREEBSD_LINKER: ps5-clang
+          CARGO_TARGET_X86_64_UNKNOWN_FREEBSD_AR: ps5-ar
 
       - name: Build release binary
         run: cargo build --release --workspace --target x86_64-unknown-freebsd --no-default-features --features ps5-platform/ps5,discord-ui/ps5 --bin discord-app
+        env:
+          PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
+          CC_x86_64_unknown_freebsd: ps5-clang
+          AR_x86_64_unknown_freebsd: ps5-ar
+          CARGO_TARGET_X86_64_UNKNOWN_FREEBSD_LINKER: ps5-clang
+          CARGO_TARGET_X86_64_UNKNOWN_FREEBSD_AR: ps5-ar
 
       - name: Verify binary
         run: |
@@ -102,8 +151,10 @@ jobs:
             --version ${{ github.ref_name == 'refs/heads/main' && '0.1.0-dev' || github.ref_name }} \
             --app-ver 01.00 \
             --content-id DISCORDPS5_001 \
-            --ps5sdk $PS5SDK_DIR \
+            --ps5sdk ${{ env.PS5SDK_DIR }} \
             --work-dir build/pkg
+        env:
+          PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
 
       - name: Upload PS5 binary artifact
         uses: actions/upload-artifact@v4
