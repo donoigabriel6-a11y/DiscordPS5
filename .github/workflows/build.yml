@@ -65,9 +65,14 @@ jobs:
           cd /tmp/PS5SDK
 
           # Build PS5SDK using the official build process
-          # The SDK provides ps5-clang and ps5-ar for cross-compilation
+          # The toolchain file is in the source directory, so PS5SDK must point to source
           chmod +x build.sh
-          PS5SDK="$SDK_DIR" ./build.sh
+
+          # Build with PS5SDK pointing to source directory (for toolchain file)
+          PS5SDK="/tmp/PS5SDK" ./build.sh
+
+          # Install to target directory
+          sudo cmake --install build --prefix "$SDK_DIR"
 
           # Verify SDK installation
           echo "=== PS5SDK Installation ==="
