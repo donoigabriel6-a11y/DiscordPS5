@@ -9,149 +9,59 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # Homebrew PS5SDK version/release to use
-  # Use a specific tag for reliability; "latest" works for release API but not for git branch
-  PS5SDK_VERSION: "main"  # Use main branch for git clone fallback; or specific tag like "v1.0.0"
-  PS5SDK_REPO: "ps5dev/PS5SDK"  # GitHub repo for the homebrew PS5SDK
+  # Use Docker image with PS5SDK pre-installed for reliable cross-compilation
+  DOCKER_IMAGE: ghcr.io/ps5dev/ps5sdk:latest
 
 jobs:
   build:
-    name: Build for PS5 (aarch64-unknown-freebsd) with Homebrew PS5SDK
+    name: Build for PS5 (aarch64-unknown-freebsd) with PS5SDK
     runs-on: ubuntu-latest
     timeout-minutes: 60
+
+    # Use Docker container with PS5SDK pre-installed
+    container:
+      image: ${{ env.DOCKER_IMAGE }}
+      options: --user root
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain
+      - name: Install Rust toolchain in container
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-unknown-freebsd
 
-      - name: Install system dependencies
+      - name: Verify PS5SDK in container
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            clang \
-            lld \
-            llvm \
-            cmake \
-            ninja-build \
-            git \
-            wget \
-            unzip \
-            python3 \
-            python3-pip \
-            libssl-dev \
-            pkg-config \
-            libxcb1-dev \
-            perl
+          echo "=== PS5SDK Environment ==="
+          echo "PATH: $PATH"
+          echo "PS5SDK_DIR: $PS5SDK_DIR"
+          which ps5-clang || which clang
+          ps5-clang --version || clang --version
+          ps5-clang --target=aarch64-unknown-freebsd -v 2>&1 | head -30 || true
+          ls -la $PS5SDK_DIR/
 
       - name: Install Python dependencies for packaging
         run: |
           pip3 install pillow
 
-      - name: Install Homebrew PS5SDK
-        id: ps5sdk
-        run: |
-          # Don't exit on errors - SDK installation is best-effort
-          set +e
-
-          SDK_DIR="/opt/ps5sdk"
-          echo "PS5SDK_DIR=$SDK_DIR" >> $GITHUB_ENV
-
-          # Try to download prebuilt release first
-          if [ "${{ env.PS5SDK_VERSION }}" = "latest" ]; then
-            RELEASE_URL="https://api.github.com/repos/${{ env.PS5SDK_REPO }}/releases/latest"
-          else
-            RELEASE_URL="https://api.github.com/repos/${{ env.PS5SDK_REPO }}/releases/tags/${{ env.PS5SDK_VERSION }}"
-          fi
-
-          echo "Fetching release info from $RELEASE_URL"
-          RELEASE_INFO=$(curl -sL "$RELEASE_URL" 2>/dev/null || echo "{}")
-
-          # Look for Linux x86_64 prebuilt asset - try multiple patterns
-          ASSET_URL=$(echo "$RELEASE_INFO" | grep -o '"browser_download_url": "[^"]*"' | grep -i -E '(linux|ubuntu).*x86_64|x86_64.*(linux|ubuntu)' | head -1 | cut -d'"' -f4)
-
-          if [ -n "$ASSET_URL" ]; then
-            echo "Found prebuilt PS5SDK asset: $ASSET_URL"
-            wget -q "$ASSET_URL" -O /tmp/ps5sdk.tar.gz 2>/dev/null || true
-            sudo mkdir -p "$SDK_DIR"
-            sudo tar -xzf /tmp/ps5sdk.tar.gz -C "$SDK_DIR" --strip-components=1 2>/dev/null || \
-            sudo tar -xzf /tmp/ps5sdk.tar.gz -C "$SDK_DIR" 2>/dev/null || true
-          else
-            echo "No prebuilt Linux asset found, trying to build from source..."
-            # Use main branch for git clone (not the version tag which might not exist as branch)
-            git clone --depth 1 --branch "main" \
-              "https://github.com/${{ env.PS5SDK_REPO }}.git" /tmp/PS5SDK 2>/dev/null || true
-            cd /tmp/PS5SDK 2>/dev/null || true
-
-            # Build PS5SDK (adjust build commands based on the SDK's build system)
-            if [ -f "CMakeLists.txt" ]; then
-              cmake -B build -DCMAKE_INSTALL_PREFIX="$SDK_DIR" -DCMAKE_BUILD_TYPE=Release 2>/dev/null || true
-              cmake --build build --parallel $(nproc) 2>/dev/null || true
-              sudo cmake --install build 2>/dev/null || true
-            elif [ -f "Makefile" ]; then
-              make -j$(nproc) PREFIX="$SDK_DIR" 2>/dev/null || true
-              sudo make install PREFIX="$SDK_DIR" 2>/dev/null || true
-            else
-              echo "Unknown build system, trying generic install..."
-              sudo cp -r * "$SDK_DIR/" 2>/dev/null || true
-            fi
-          fi
-
-          # Verify SDK installation - be more lenient
-          echo "=== PS5SDK Installation ==="
-          ls -la "$SDK_DIR/" 2>/dev/null || true
-
-          # Check for clang in various locations
-          CLANG_PATH=$(find "$SDK_DIR" -name "clang" -o -name "ps5-clang" 2>/dev/null | head -1)
-          if [ -n "$CLANG_PATH" ]; then
-            echo "PS5SDK installed successfully (clang found at: $CLANG_PATH)"
-            "$CLANG_PATH" --version 2>/dev/null || true
-          else
-            echo "Warning: PS5SDK compiler not found in expected location"
-            echo "SDK directory contents:"
-            find "$SDK_DIR" -type f 2>/dev/null | head -20
-            # Don't fail the build - let cargo try to use system clang with proper sysroot
-            echo "Will attempt to use system clang with PS5 target..."
-          fi
-
-          # Always succeed - SDK is optional for build
-          exit 0
-
-      - name: Configure cargo for PS5SDK
+      - name: Configure cargo for PS5 target
         run: |
           mkdir -p ~/.cargo
 
-          # Check if PS5SDK clang exists
-          if [ -f "${{ env.PS5SDK_DIR }}/bin/ps5-clang" ] || [ -f "${{ env.PS5SDK_DIR }}/bin/clang" ]; then
-            CLANG_CMD="ps5-clang"
-            AR_CMD="ps5-ar"
-          else
-            # Use system clang with PS5 target
-            CLANG_CMD="clang"
-            AR_CMD="llvm-ar"
-          fi
-
-          # Export for use in subsequent steps
-          echo "CLANG_CMD=$CLANG_CMD" >> $GITHUB_ENV
-          echo "AR_CMD=$AR_CMD" >> $GITHUB_ENV
-
+          # PS5SDK provides ps5-clang and ps5-ar which are configured for aarch64-unknown-freebsd
           cat > ~/.cargo/config.toml << EOF
           [target.aarch64-unknown-freebsd]
-          linker = "${CLANG_CMD}"
-          ar = "${AR_CMD}"
-
-          [target.aarch64-unknown-freebsd.env]
-          # No longer need OPENSSL config since we use rustls with pure-Rust crypto
+          linker = "ps5-clang"
+          ar = "ps5-ar"
 
           [env]
-          PS5_SDK_PATH = "${{ env.PS5SDK_DIR }}"
+          PS5_SDK_PATH = "$PS5SDK_DIR"
           # Use shell \$PATH to preserve system paths (cargo, rustc, etc.)
-          PATH = "${{ env.PS5SDK_DIR }}/bin:\${PATH}"
-          CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_LINKER = "${CLANG_CMD}"
+          PATH = "$PS5SDK_DIR/bin:\${PATH}"
+          CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_LINKER = "ps5-clang"
+          CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_AR = "ps5-ar"
           CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_RUNNER = "ps5-run"
           EOF
 
@@ -168,21 +78,9 @@ jobs:
 
       - name: Build workspace (check only)
         run: cargo check --workspace --target aarch64-unknown-freebsd --no-default-features --features ps5-platform/ps5,discord-ui/ps5
-        env:
-          PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
-          CC_aarch64_unknown_freebsd: ${{ env.CLANG_CMD }}
-          AR_aarch64_unknown_freebsd: ${{ env.AR_CMD }}
-          CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_LINKER: ${{ env.CLANG_CMD }}
-          CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_AR: ${{ env.AR_CMD }}
 
       - name: Build release binary
         run: cargo build --release --workspace --target aarch64-unknown-freebsd --no-default-features --features ps5-platform/ps5,discord-ui/ps5 --bin discord-app
-        env:
-          PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
-          CC_aarch64_unknown_freebsd: ${{ env.CLANG_CMD }}
-          AR_aarch64_unknown_freebsd: ${{ env.AR_CMD }}
-          CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_LINKER: ${{ env.CLANG_CMD }}
-          CARGO_TARGET_AARCH64_UNKNOWN_FREEBSD_AR: ${{ env.AR_CMD }}
 
       - name: Verify binary
         run: |
@@ -204,10 +102,8 @@ jobs:
             --version ${{ github.ref_name == 'refs/heads/main' && '0.1.0-dev' || github.ref_name }} \
             --app-ver 01.00 \
             --content-id DISCORDPS5_001 \
-            --ps5sdk ${{ env.PS5SDK_DIR }} \
+            --ps5sdk $PS5SDK_DIR \
             --work-dir build/pkg
-        env:
-          PS5_SDK_PATH: ${{ env.PS5SDK_DIR }}
 
       - name: Upload PS5 binary artifact
         uses: actions/upload-artifact@v4
